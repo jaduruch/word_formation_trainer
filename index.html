@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Word Formation Trainer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f5f7fa; color: #1a1a2e; min-height: 100vh; }
+    header { background: #1e3a5f; color: #fff; padding: 1.2rem 2rem; display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; }
+    header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.02em; }
+    header p { font-size: 0.9rem; opacity: 0.8; }
+    .controls { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-left: auto; }
+    #score { font-weight: 700; font-size: 1rem; background: #ffffff22; padding: 0.3rem 0.8rem; border-radius: 20px; display: none; }
+    button { cursor: pointer; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: 600; padding: 0.5rem 1.2rem; transition: background 0.15s; }
+    #btn-check { background: #f0a500; color: #1a1a2e; }
+    #btn-check:hover { background: #d49000; }
+    #btn-new { background: transparent; color: #fff; border: 2px solid #fff; }
+    #btn-new:hover { background: #ffffff22; }
+    .table-wrap { overflow-x: auto; padding: 1.5rem 1rem 3rem; }
+    table { border-collapse: collapse; width: 100%; min-width: 560px; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px #0001; }
+    thead tr { background: #1e3a5f; color: #fff; }
+    thead th { padding: 0.75rem 0.9rem; text-align: left; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+
+    tbody tr:nth-child(even) { background: #f8f9fb; }
+    tbody tr:hover { background: #eef2ff; }
+    td { padding: 0.45rem 0.6rem; vertical-align: middle; }
+    td.given-cell { background: #dbeafe; font-weight: 700; font-size: 0.95rem; color: #1e3a5f; min-width: 110px; }
+    td.input-cell { min-width: 140px; }
+    input.word-input {
+      width: 100%; border: 1.5px solid #d1d5db; border-radius: 5px;
+      padding: 0.35rem 0.5rem; font-size: 0.88rem; outline: none;
+      background: #fff; transition: border-color 0.15s;
+    }
+    input.word-input:focus { border-color: #3b82f6; }
+    input.word-input.correct { border-color: #22c55e; background: #f0fdf4; }
+    input.word-input.incorrect { border-color: #ef4444; background: #fef2f2; }
+    .hint-text { font-size: 0.75rem; color: #ef4444; margin-top: 2px; display: block; }
+    td.empty-cell { color: #9ca3af; font-size: 0.8rem; font-style: italic; text-align: center; }
+  </style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Word Formation Trainer</h1>
+    <p>Fill in the missing Noun, Adjective and Adverb forms.</p>
+  </div>
+  <div class="controls">
+    <span id="score"></span>
+    <button id="btn-check">Check Answers</button>
+    <button id="btn-new">New Test</button>
+  </div>
+</header>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Noun</th>
+        <th>Adjective</th>
+        <th>Adverb</th>
+      </tr>
+    </thead>
+    <tbody id="quiz-body"></tbody>
+  </table>
+</div>
+
+<script>
+// ─── Word Families ────────────────────────────────────────────────────────────
+// Each entry: { noun:[], adj:[], adverb:[] }
+// Negation-prefix forms (un-, in-, im-, ir-, dis-, mis-) are EXCLUDED entirely.
+// Regular -ly adverbs are not in the PDF source, so adverb:[] for almost all.
+/*const wordFamilies = [
+  { noun:["ability"],                 adj:["able"],                        adverb:["ably"] },
+  { noun:["acceptance"],              adj:["acceptable"],                  adverb:["acceptably"] },
+  { noun:["accuracy"],                adj:["accurate"],                    adverb:["accurately"] },
+  { noun:["accusation","accused"],    adj:["accused"],                     adverb:[] },
+  { noun:["action","actor","actress"],adj:["active"],                      adverb:["actively"] },
+  { noun:["addition"],                adj:["additional"],                  adverb:["additionally"] },
+  { noun:["addiction"],               adj:["addicted","addictive"],        adverb:["addictively"] },
+  { noun:["admiration"],              adj:["admirable"],                    adverb:["admirably"] },
+  { noun:["advantage"],               adj:[],                              adverb:[] },
+  { noun:["advertisement","ad","advert"], adj:[],                          adverb:[] },
+  { noun:["advice"],                  adj:[],                              adverb:[] },
+  { noun:["agreement"],               adj:["agreeable"],                              adverb:["agreeably"] },
+  { noun:["allergy"],                 adj:["allergic"],                    adverb:[] },
+  { noun:["amusement"],               adj:["amusing"],                     adverb:["amusingly"] },
+  { noun:["announcement"],            adj:[],                              adverb:[] },
+  { noun:["anxiety"],                 adj:["anxious"],                     adverb:["anxiously"] },
+  { noun:["appearance"],              adj:[],                              adverb:[] },
+  { noun:["application"],             adj:[],                              adverb:[] },
+  { noun:["argument"],                adj:[],                              adverb:[] },
+  { noun:["arrangement"],             adj:[],                              adverb:[] },
+  { noun:["arrival"],                 adj:[],                              adverb:[] },
+  { noun:["art","artist"],            adj:["artistic"],                    adverb:["artistically"] },
+  { noun:["assistance","assistant"],  adj:[],                              adverb:[] },
+  { noun:["athlete","athletics"],     adj:["athletic"],                    adverb:["athletically"] },
+  { noun:["attention"],               adj:["attentive"],                   adverb:["attentively"] },
+  { noun:["attraction"],              adj:["attractive"],                  adverb:["attractively"] },
+  { noun:["awareness"],               adj:["aware"],                       adverb:[] },
+  { noun:["baker","bakery"],          adj:[],                              adverb:[] },
+  { noun:["beauty"],                  adj:["beautiful"],                   adverb:["beautifully"] },
+  { noun:["beggar"],                  adj:[],                              adverb:[] },
+  { noun:["beginning","beginner"],    adj:[],                              adverb:[] },
+  { noun:["behaviour"],               adj:[],                              adverb:[] },
+  { noun:["belief"],                  adj:[],                              adverb:[] },
+  { noun:["boredom"],                 adj:["boring","bored"],              adverb:["boringly"] },
+  { noun:["bravery"],                 adj:["brave"],                       adverb:["bravely"] },
+  { noun:[],                          adj:["breakable"],                   adverb:[] },
+  { noun:["building"],                adj:[],                              adverb:[] },
+  { noun:["care"],                    adj:["careful","careless"],          adverb:["carefully","carelessly"] },
+  { noun:["certainty"],               adj:["certain"],                     adverb:["certainly"] },
+  { noun:["child","childhood"],       adj:["childish"],                    adverb:["childishly"] },
+  { noun:["choice"],                  adj:[],                              adverb:[] },
+  { noun:["collector","collection"],  adj:[],                              adverb:[] },
+  { noun:["comfort"],                 adj:["comfortable"],                 adverb:["comfortably"] },
+  { noun:["communication"],           adj:["communicative"],               adverb:["communicatively"] },
+  { noun:["comparison"],              adj:[],                              adverb:[] },
+  { noun:["competition"],             adj:["competitive"],                 adverb:["competitively"] },
+  { noun:["conclusion"],              adj:[],                              adverb:[] },
+  { noun:["confidence"],              adj:["confident"],                   adverb:["confidently"] },
+  { noun:["confusion"],               adj:["confused"],                    adverb:[] },
+  { noun:["connection"],              adj:[],                              adverb:[] },
+  { noun:["container","content"],     adj:[],                              adverb:[] },
+  { noun:["correction"],              adj:["correct"],                     adverb:["correctly"] },
+  { noun:["correspondence"],          adj:[],                              adverb:[] },
+  { noun:["courage"],                 adj:["courageous"],                  adverb:["courageously"] },
+  { noun:["creation","creator","creativity"], adj:["creative"],            adverb:["creatively"] },
+  { noun:["crime","criminal"],        adj:["criminal"],                    adverb:["criminally"] },
+  { noun:["culture"],                 adj:["cultural"],                    adverb:["culturally"] },
+  { noun:["danger"],                  adj:["dangerous"],                   adverb:["dangerously"] },
+  { noun:["day"],                     adj:["daily"],                       adverb:["daily"] },
+  { noun:["decision"],                adj:["decisive"],                    adverb:["decisively"] },
+  { noun:["depth"],                   adj:["deep"],                        adverb:["deeply"] },
+  { noun:["delivery"],                adj:[],                              adverb:[] },
+  { noun:["departure"],               adj:[],                              adverb:[] },
+  { noun:["desire"],                  adj:["desirable"],                   adverb:["desirably"] },
+  { noun:["destruction"],             adj:["destructive"],                 adverb:["destructively"] },
+  { noun:["development"],             adj:[],                              adverb:[] },
+  { noun:["death"],                   adj:["dead"],                        adverb:[] },
+  { noun:["difference"],              adj:["different"],                   adverb:["differently"] },
+  { noun:["direction","director"],    adj:["direct"],                      adverb:["directly"] },
+  { noun:["discovery"],               adj:[],                              adverb:[] },
+  { noun:["discussion"],              adj:[],                              adverb:[] },
+  { noun:["disgust"],                 adj:["disgusting","disgusted"],      adverb:["disgustingly"] },
+  { noun:["distance"],                adj:["distant"],                     adverb:["distantly"] },
+  { noun:["division"],                adj:[],                              adverb:[] },
+  { noun:["editor","edition"],        adj:[],                              adverb:[] },
+  { noun:["education"],               adj:[],                              adverb:[] },
+  { noun:["effect"],                  adj:["effective"],                   adverb:["effectively"] },
+  { noun:["emotion"],                 adj:["emotional"],                   adverb:["emotionally"] },
+  { noun:["employer","employee","employment"], adj:[],                     adverb:[] },
+  { noun:["energy"],                  adj:["energetic"],                   adverb:["energetically"] },
+  { noun:["enjoyment"],               adj:["enjoyable"],                   adverb:["enjoyably"] },
+  { noun:["entrance"],                adj:[],                              adverb:[] },
+  { noun:["entertainment","entertainer"], adj:[],                          adverb:[] },
+  { noun:["environment"],             adj:["environmental"],               adverb:["environmentally"] },
+  { noun:["equality"],                adj:["equal"],                       adverb:["equally"] },
+  { noun:["equipment"],               adj:["equipped"],                    adverb:[] },
+  { noun:["evidence"],                adj:["evident"],                     adverb:["evidently"] },
+  { noun:["examination","examiner"],  adj:[],                              adverb:[] },
+  { noun:["exception"],               adj:[],                              adverb:[] },
+  { noun:["expectation"],             adj:["expected"],                    adverb:[] },
+  { noun:["expense"],                 adj:["expensive"],                   adverb:["expensively"] },
+  { noun:["explanation"],             adj:[],                              adverb:[] },
+  { noun:["failure"],                 adj:[],                              adverb:[] },
+  { noun:["fame"],                    adj:["famous"],                      adverb:["famously"] },
+  { noun:["fashion"],                 adj:["fashionable"],                 adverb:["fashionably"] },
+  { noun:["finance","finances"],      adj:["financial"],                   adverb:["financially"] },
+  { noun:["fitness"],                 adj:["fit"],                         adverb:[] },
+  { noun:["flight"],                  adj:[],                              adverb:[] },
+  { noun:["fortune"],                 adj:["fortunate"],                   adverb:["fortunately"] },
+  { noun:["freedom"],                 adj:["free"],                        adverb:["freely"] },
+  { noun:["freezer"],                 adj:["freezing"],                    adverb:[] },
+  { noun:["friend","friendship"],     adj:["friendly"],                    adverb:[] },
+  { noun:["globe"],                   adj:["global"],                      adverb:["globally"] },
+  { noun:["greatness"],               adj:["great"],                       adverb:["greatly"] },
+  { noun:["growth"],                  adj:["growing"],                     adverb:["growingly"] },
+  { noun:["happiness"],               adj:["happy"],                       adverb:["happily"] },
+  { noun:["hatred"],                  adj:[],                              adverb:[] },
+  { noun:["help"],                    adj:["helpful","helpless"],          adverb:["helpfully","helplessly"] },
+  { noun:["history","historian"],     adj:["historic"],                    adverb:["historically"] },
+  { noun:["honesty"],                 adj:["honest"],                      adverb:["honestly"] },
+  { noun:["illness"],                 adj:["ill"],                         adverb:[] },
+  { noun:["importance"],              adj:["important"],                   adverb:["importantly"] },
+  { noun:["improvement"],             adj:[],                              adverb:[] },
+  { noun:["industry"],                adj:["industrial","industrious"],    adverb:["industrially","industriously"] },
+  { noun:["information"],             adj:["informed","informative"],      adverb:["informatively"] },
+  { noun:["inhabitant"],              adj:[],                              adverb:[] },
+  { noun:["injury"],                  adj:[],                              adverb:[] },
+  { noun:["intelligence"],            adj:["intelligent"],                 adverb:["intelligently"] },
+  { noun:["intention"],               adj:["intentional"],                 adverb:["intentionally"] },
+  { noun:["interest"],                adj:["interesting"],                 adverb:["interestingly"] },
+  { noun:["introduction"],            adj:[],                              adverb:[] },
+  { noun:["invasion"],                adj:["invasive"],                    adverb:["invasively"] },
+  { noun:["invention","inventor"],    adj:[],                              adverb:[] },
+  { noun:["jealousy"],                adj:["jealous"],                     adverb:["jealously"] },
+  { noun:["journalist"],              adj:["journalistic"],                adverb:["journalistically"] },
+  { noun:["judgement"],               adj:[],                              adverb:[] },
+  { noun:["kindness"],                adj:["kind"],                        adverb:["kindly"] },
+  { noun:["law","lawyer"],            adj:[],                              adverb:[] },
+  { noun:[],                          adj:["legal"],                       adverb:["legally"] },
+  { noun:["liar"],                    adj:[],                              adverb:[] },
+  { noun:["life"],                    adj:["lively"],                      adverb:["lively"] },
+  { noun:[],                          adj:["likely"],                      adverb:["likely"] },
+  { noun:["likeness"],                adj:[],                              adverb:[] },
+  { noun:["length"],                  adj:["long"],                        adverb:[] },
+  { noun:["loss"],                    adj:[],                              adverb:[] },
+  { noun:["luck"],                    adj:["lucky"],                       adverb:["luckily"] },
+  { noun:["manager","management"],    adj:[],                              adverb:[] },
+  { noun:["marriage"],                adj:["married"],                     adverb:[] },
+  { noun:["medicine"],                adj:["medical"],                     adverb:["medically"] },
+  { noun:["mixture","mixer"],         adj:[],                              adverb:[] },
+  { noun:["murderer","murder"],       adj:["murderous"],                   adverb:["murderously"] },
+  { noun:["musician","music"],        adj:["musical"],                     adverb:["musically"] },
+  { noun:["nation","nationality"],    adj:["national","international"],    adverb:["nationally","internationally"] },
+  { noun:["nature"],                  adj:["natural"],                     adverb:["naturally"] },
+  { noun:["neighbour","neighbourhood"],adj:[],                             adverb:[] },
+  { noun:["nerve"],                   adj:["nervous"],                     adverb:["nervously"] },
+  { noun:["noise"],                   adj:["noisy"],                       adverb:["noisily"] },
+  { noun:["obedience"],               adj:["obedient"],                    adverb:["obediently"] },
+  { noun:["observation"],             adj:[],                              adverb:[] },
+  { noun:["offence"],                 adj:["offensive"],                   adverb:["offensively"] },
+  { noun:["office","official"],       adj:["official"],                    adverb:["officially"] },
+  { noun:["opposition","opponent","opposite"], adj:["opposite"],           adverb:[] },
+  { noun:["origin"],                  adj:["original"],                    adverb:["originally"] },
+  { noun:["package"],                 adj:[],                              adverb:[] },
+  { noun:["pain"],                    adj:["painful","painless"],          adverb:["painfully","painlessly"] },
+  { noun:["payment"],                 adj:[],                              adverb:[] },
+  { noun:["peace"],                   adj:["peaceful"],                    adverb:["peacefully"] },
+  { noun:["perfection"],              adj:["perfect"],                     adverb:["perfectly"] },
+  { noun:["performance"],             adj:[],                              adverb:[] },
+  { noun:["person","personality"],    adj:["personal"],                    adverb:["personally"] },
+  { noun:["poison"],                  adj:["poisonous"],                   adverb:["poisonously"] },
+  { noun:["politeness"],              adj:["polite"],                      adverb:["politely"] },
+  { noun:["politics","politician"],   adj:["political"],                   adverb:["politically"] },
+  { noun:["pollution"],               adj:["polluted"],                    adverb:[] },
+  { noun:["poverty"],                 adj:["poor"],                        adverb:["poorly"] },
+  { noun:["popularity"],              adj:["popular"],                     adverb:["popularly"] },
+  { noun:["possibility"],             adj:["possible"],                    adverb:["possibly"] },
+  { noun:["practice"],                adj:["practical"],                   adverb:["practically"] },
+  { noun:["prediction"],              adj:["predictable"],                 adverb:["predictably"] },
+  { noun:["preference"],              adj:["preferable"],                  adverb:["preferably"] },
+  { noun:["preparation"],             adj:["prepared"],                    adverb:[] },
+  { noun:["prison","prisoner"],       adj:[],                              adverb:[] },
+  { noun:["product","production","producer"], adj:[],                      adverb:[] },
+  { noun:["profession"],              adj:["professional"],                adverb:["professionally"] },
+  { noun:["proof"],                   adj:[],                              adverb:[] },
+  { noun:["psychologist","psychology"],adj:["psychological"],              adverb:["psychologically"] },
+  { noun:["qualification"],           adj:[],                              adverb:[] },
+  { noun:["reality"],                 adj:["real","realistic"],            adverb:["really","realistically"] },
+  { noun:["reason"],                  adj:["reasonable"],                  adverb:["reasonably"] },
+  { noun:["recognition"],             adj:["recognisable"],                adverb:["recognisably"] },
+  { noun:["recovery"],                adj:["recovered"],                   adverb:[] },
+  { noun:["reduction"],               adj:["reductive"],                    adverb:["reductively"] },
+  { noun:["reference"],               adj:[],                              adverb:[] },
+  { noun:["refusal"],                 adj:["refusing"],                              adverb:[] },
+  { noun:["relative","relation","relationship"], adj:["relative"],         adverb:["relatively"] },
+  { noun:["responsibility"],          adj:["responsible"],                 adverb:["responsibly"] },
+  { noun:["retirement"],              adj:["retired"],                     adverb:[] },
+  { noun:["revision"],                adj:[],                              adverb:[] },
+  { noun:["revolution"],              adj:["revolutionary"],               adverb:[] },
+  { noun:["robber","robbery"],        adj:[],                              adverb:[] },
+  { noun:["safety"],                  adj:["safe"],                        adverb:["safely"] },
+  { noun:["sailor"],                  adj:[],                              adverb:[] },
+  { noun:["science","scientist"],     adj:["scientific"],                  adverb:["scientifically"] },
+  { noun:["secrecy","secret"],        adj:["secret"],                      adverb:["secretly"] },
+  { noun:["security"],                adj:["secure"],                      adverb:["securely"] },
+  { noun:["servant","service"],       adj:[],                              adverb:[] },
+  { noun:["silence"],                 adj:["silent"],                      adverb:["silently"] },
+  { noun:["similarity"],              adj:["similar"],                     adverb:["similarly"] },
+  { noun:["simplicity"],              adj:["simple"],                      adverb:["simply"] },
+  { noun:["solution"],                adj:["solvable"],                    adverb:[] },
+  { noun:["speaker","speech"],        adj:[],                              adverb:[] },
+  { noun:["strength"],                adj:["strong"],                      adverb:["strongly"] },
+  { noun:["student","study"],         adj:[],                              adverb:[] },
+  { noun:["stylist"],                 adj:["stylish"],                     adverb:["stylishly"] },
+  { noun:["success"],                 adj:["successful"],                  adverb:["successfully"] },
+  { noun:["suggestion"],              adj:["suggestive"],                  adverb:["suggestively"] },
+  { noun:["suit"],                    adj:["suitable"],                    adverb:["suitably"] },
+  { noun:["sunshine","sun"],          adj:["sunny"],                       adverb:[] },
+  { noun:["surprise"],                adj:["surprising","surprised"],      adverb:["surprisingly"] },
+  { noun:["sweetness"],               adj:["sweet"],                       adverb:["sweetly"] },
+  { noun:["sympathy"],                adj:["sympathetic"],                 adverb:["sympathetically"] },
+  { noun:["teacher"],                 adj:["teaching"],                    adverb:["teachingly"] },
+  { noun:["technology","technician"], adj:["technological"],               adverb:["technologically"] },
+  { noun:["thought"],                 adj:["thinkable","thoughtful","thoughtless"], adverb:["thoughtfully","thoughtlessly"] },
+  { noun:["treatment"],               adj:[],                              adverb:[] },
+  { noun:["truth"],                   adj:["true","truthful"],             adverb:["truly","truthfully"] },
+  { noun:["understanding"],           adj:[],                              adverb:[] },
+  { noun:["use","user"],              adj:["useful","useless","usable"],   adverb:["usefully","uselessly"] },
+  { noun:["value"],                   adj:["valuable"],                    adverb:["valuably"] },
+  { noun:["variety"],                 adj:["various"],                     adverb:["variously"] },
+  { noun:["visitor"],                 adj:[],                              adverb:[] },
+  { noun:["weight"],                  adj:[],                              adverb:[] },
+  { noun:["wood"],                    adj:["wooden"],                      adverb:[] },
+];*/
+
+// Updated list by chatGpt
+const wordFamilies = [
+  { noun:["ability"],                   adj:["able","unable"],                  adverb:["ably"] },
+  { noun:["acceptance"],                adj:["acceptable","unacceptable"],      adverb:["acceptably"] },
+  { noun:["accuracy"],                  adj:["accurate","inaccurate"],          adverb:["accurately"] },
+  { noun:["accusation"],                adj:["accusing"],                       adverb:[] },
+  { noun:["action","actor","actress"],  adj:["active","inactive"],              adverb:["actively"] },
+  { noun:["addition"],                  adj:["additional"],                     adverb:["additionally"] },
+  { noun:["addiction"],                 adj:["addicted","addictive"],           adverb:["addictively"] },
+  { noun:["admiration"],                adj:["admirable"],                      adverb:["admirably"] },
+  { noun:["advantage","disadvantage"],  adj:["advantageous"],                   adverb:["advantageously"] },
+  { noun:["advertisement","advertising"], adj:["advertised"],                   adverb:[] },
+  { noun:["advice"],                    adj:["advisable"],                      adverb:[] },
+  { noun:["agreement"],                 adj:["agreeable"],                      adverb:["agreeably"] },
+  { noun:["allergy"],                   adj:["allergic"],                       adverb:[] },
+  { noun:["amusement"],                 adj:["amusing","amused"],               adverb:["amusingly"] },
+  { noun:["announcement"],              adj:["announced"],                      adverb:[] },
+  { noun:["anxiety"],                   adj:["anxious"],                        adverb:["anxiously"] },
+  { noun:["appearance"],                adj:["apparent"],                       adverb:["apparently"] },
+  { noun:["application"],               adj:["applicable"],                     adverb:["applicably"] },
+  { noun:["argument"],                  adj:["argumentative"],                  adverb:["argumentatively"] },
+  { noun:["arrival"],                   adj:["arriving"],                       adverb:[] },
+  { noun:["art","artist"],              adj:["artistic"],                       adverb:["artistically"] },
+  { noun:["assistance","assistant"],    adj:["assistive"],                      adverb:[] },
+  { noun:["athlete","athletics"],       adj:["athletic"],                       adverb:["athletically"] },
+  { noun:["attention"],                 adj:["attentive"],                      adverb:["attentively"] },
+  { noun:["attraction"],                adj:["attractive"],                     adverb:["attractively"] },
+  { noun:["awareness"],                 adj:["aware","unaware"],                adverb:[] },
+  { noun:["beauty"],                    adj:["beautiful"],                      adverb:["beautifully"] },
+  { noun:["belief"],                    adj:["believable","unbelievable"],      adverb:["believably"] },
+  { noun:["boredom"],                   adj:["boring","bored"],                 adverb:["boringly"] },
+  { noun:["bravery"],                   adj:["brave"],                          adverb:["bravely"] },
+  { noun:["care"],                      adj:["careful","careless"],             adverb:["carefully","carelessly"] },
+  { noun:["certainty"],                 adj:["certain","uncertain"],            adverb:["certainly"] },
+  { noun:["child","childhood"],         adj:["childish","childlike"],           adverb:["childishly"] },
+  { noun:["choice"],                    adj:["choosy"],                         adverb:[] },
+  { noun:["collection","collector"],    adj:["collective"],                     adverb:["collectively"] },
+  { noun:["comfort"],                   adj:["comfortable","uncomfortable"],    adverb:["comfortably","uncomfortably"] },
+  { noun:["communication"],             adj:["communicative"],                  adverb:["communicatively"] },
+  { noun:["competition"],               adj:["competitive"],                    adverb:["competitively"] },
+  { noun:["confidence"],                adj:["confident"],                      adverb:["confidently"] },
+  { noun:["confusion"],                 adj:["confused","confusing"],           adverb:["confusingly"] },
+  { noun:["connection"],                adj:["connected"],                      adverb:[] },
+  { noun:["correction"],                adj:["correct"],                        adverb:["correctly"] },
+  { noun:["courage"],                   adj:["courageous"],                     adverb:["courageously"] },
+  { noun:["creation","creator","creativity"], adj:["creative"],                 adverb:["creatively"] },
+  { noun:["crime","criminal"],          adj:["criminal"],                       adverb:["criminally"] },
+  { noun:["culture"],                   adj:["cultural"],                       adverb:["culturally"] },
+  { noun:["danger"],                    adj:["dangerous"],                      adverb:["dangerously"] },
+  { noun:["decision"],                  adj:["decisive"],                       adverb:["decisively"] },
+  { noun:["depth"],                     adj:["deep"],                           adverb:["deeply"] },
+  { noun:["desire"],                    adj:["desirable"],                      adverb:["desirably"] },
+  { noun:["destruction"],               adj:["destructive"],                    adverb:["destructively"] },
+  { noun:["development"],               adj:["developed","developing"],         adverb:[] },
+  { noun:["death"],                     adj:["dead","deadly"],                  adverb:["deadly"] },
+  { noun:["difference"],                adj:["different"],                      adverb:["differently"] },
+  { noun:["direction","director"],      adj:["direct"],                         adverb:["directly"] },
+  { noun:["discussion"],                adj:["discussed"],                      adverb:[] },
+  { noun:["disgust"],                   adj:["disgusting","disgusted"],         adverb:["disgustingly"] },
+  { noun:["distance"],                  adj:["distant"],                        adverb:["distantly"] },
+  { noun:["education"],                 adj:["educational","educated"],         adverb:["educationally"] },
+  { noun:["effect"],                    adj:["effective","ineffective"],        adverb:["effectively","ineffectively"] },
+  { noun:["emotion"],                   adj:["emotional"],                      adverb:["emotionally"] },
+  { noun:["employment"],                adj:["employed","unemployed"],          adverb:[] },
+  { noun:["energy"],                    adj:["energetic"],                      adverb:["energetically"] },
+  { noun:["enjoyment"],                 adj:["enjoyable"],                      adverb:["enjoyably"] },
+  { noun:["environment"],               adj:["environmental"],                  adverb:["environmentally"] },
+  { noun:["equality"],                  adj:["equal"],                          adverb:["equally"] },
+  { noun:["evidence"],                  adj:["evident"],                        adverb:["evidently"] },
+  { noun:["expectation"],               adj:["expected","unexpected"],          adverb:["unexpectedly"] },
+  { noun:["expense"],                   adj:["expensive"],                      adverb:["expensively"] },
+  { noun:["experience"],                adj:["experienced","inexperienced"],    adverb:[] },
+  { noun:["failure"],                   adj:["failed"],                         adverb:[] },
+  { noun:["fame"],                      adj:["famous"],                         adverb:["famously"] },
+  { noun:["fashion"],                   adj:["fashionable"],                    adverb:["fashionably"] },
+  { noun:["finance"],                   adj:["financial"],                      adverb:["financially"] },
+  { noun:["fortune"],                   adj:["fortunate","unfortunate"],        adverb:["fortunately","unfortunately"] },
+  { noun:["freedom"],                   adj:["free"],                           adverb:["freely"] },
+  { noun:["friend","friendship"],       adj:["friendly"],                       adverb:[] },
+  { noun:["growth"],                    adj:["growing"],                        adverb:[] },
+  { noun:["happiness"],                 adj:["happy","unhappy"],                adverb:["happily"] },
+  { noun:["help"],                      adj:["helpful","helpless"],             adverb:["helpfully","helplessly"] },
+  { noun:["history"],                   adj:["historic","historical"],          adverb:["historically"] },
+  { noun:["honesty"],                   adj:["honest"],                         adverb:["honestly"] },
+  { noun:["importance"],                adj:["important"],                      adverb:["importantly"] },
+  { noun:["industry"],                  adj:["industrial","industrious"],       adverb:["industrially","industriously"] },
+  { noun:["information"],               adj:["informative"],                    adverb:["informatively"] },
+  { noun:["intelligence"],              adj:["intelligent"],                    adverb:["intelligently"] },
+  { noun:["intention"],                 adj:["intentional"],                    adverb:["intentionally"] },
+  { noun:["interest"],                  adj:["interesting","interested"],       adverb:["interestingly"] },
+  { noun:["invention","inventor"],      adj:["inventive"],                      adverb:["inventively"] },
+  { noun:["jealousy"],                  adj:["jealous"],                        adverb:["jealously"] },
+  { noun:["kindness"],                  adj:["kind"],                           adverb:["kindly"] },
+  { noun:["knowledge"],                 adj:["knowledgeable"],                  adverb:["knowledgeably"] },
+  { noun:["length"],                    adj:["long","lengthy"],                 adverb:[] },
+  { noun:["life"],                      adj:["lively"],                         adverb:["lively"] },
+  { noun:["luck"],                      adj:["lucky","unlucky"],                adverb:["luckily","unluckily"] },
+  { noun:["meaning"],                   adj:["meaningful","meaningless"],       adverb:["meaningfully","meaninglessly"] },
+  { noun:["medicine"],                  adj:["medical"],                        adverb:["medically"] },
+  { noun:["music","musician"],          adj:["musical"],                        adverb:["musically"] },
+  { noun:["nation"],                    adj:["national","international"],       adverb:["nationally","internationally"] },
+  { noun:["nature"],                    adj:["natural"],                        adverb:["naturally"] },
+  { noun:["nerve"],                     adj:["nervous"],                        adverb:["nervously"] },
+  { noun:["noise"],                     adj:["noisy"],                          adverb:["noisily"] },
+  { noun:["obedience"],                 adj:["obedient"],                       adverb:["obediently"] },
+  { noun:["offence"],                   adj:["offensive"],                      adverb:["offensively"] },
+  { noun:["origin"],                    adj:["original"],                       adverb:["originally"] },
+  { noun:["pain"],                      adj:["painful","painless"],             adverb:["painfully","painlessly"] },
+  { noun:["peace"],                     adj:["peaceful"],                       adverb:["peacefully"] },
+  { noun:["performance"],               adj:["performing"],                     adverb:[] },
+  { noun:["person","personality"],      adj:["personal"],                       adverb:["personally"] },
+  { noun:["power"],                     adj:["powerful","powerless"],           adverb:["powerfully","powerlessly"] },
+  { noun:["practice"],                  adj:["practical"],                      adverb:["practically"] },
+  { noun:["prediction"],                adj:["predictable","unpredictable"],    adverb:["predictably"] },
+  { noun:["preference"],                adj:["preferable"],                     adverb:["preferably"] },
+  { noun:["profession"],                adj:["professional"],                   adverb:["professionally"] },
+  { noun:["reality"],                   adj:["real","realistic"],               adverb:["really","realistically"] },
+  { noun:["reason"],                    adj:["reasonable"],                     adverb:["reasonably"] },
+  { noun:["relationship"],              adj:["related"],                        adverb:["relatively"] },
+  { noun:["responsibility"],            adj:["responsible","irresponsible"],    adverb:["responsibly","irresponsibly"] },
+  { noun:["revolution"],                adj:["revolutionary"],                  adverb:[] },
+  { noun:["safety"],                    adj:["safe"],                           adverb:["safely"] },
+  { noun:["science","scientist"],       adj:["scientific"],                     adverb:["scientifically"] },
+  { noun:["secrecy","secret"],          adj:["secret"],                         adverb:["secretly"] },
+  { noun:["security"],                  adj:["secure"],                         adverb:["securely"] },
+  { noun:["silence"],                   adj:["silent"],                         adverb:["silently"] },
+  { noun:["similarity"],                adj:["similar"],                        adverb:["similarly"] },
+  { noun:["simplicity"],                adj:["simple"],                         adverb:["simply"] },
+  { noun:["strength"],                  adj:["strong"],                         adverb:["strongly"] },
+  { noun:["success"],                   adj:["successful","unsuccessful"],      adverb:["successfully","unsuccessfully"] },
+  { noun:["suggestion"],                adj:["suggestive"],                     adverb:["suggestively"] },
+  { noun:["surprise"],                  adj:["surprising","surprised"],         adverb:["surprisingly"] },
+  { noun:["sympathy"],                  adj:["sympathetic"],                    adverb:["sympathetically"] },
+  { noun:["technology"],                adj:["technological"],                  adverb:["technologically"] },
+  { noun:["thought"],                   adj:["thoughtful","thoughtless"],       adverb:["thoughtfully","thoughtlessly"] },
+  { noun:["truth"],                     adj:["true","truthful"],                adverb:["truly","truthfully"] },
+  { noun:["use","user"],                adj:["useful","useless","usable"],      adverb:["usefully","uselessly"] },
+  { noun:["value"],                     adj:["valuable"],                       adverb:["valuably"] },
+  { noun:["variety"],                   adj:["various"],                        adverb:["variously"] },
+  { noun:["wood"],                      adj:["wooden"],                         adverb:[] }
+];
+
+// ─── State ────────────────────────────────────────────────────────────────────
+const CATS = ["noun","adj","adverb"];
+let state = []; // [{ given: "noun"|"adj"|"adverb", givenWord: "..." }, ...]
+
+function pickGiven(family) {
+  const available = CATS.filter(c => family[c].length > 0);
+  if (available.length === 0) return { given: "noun", givenWord: "—" };
+  const cat = available[Math.floor(Math.random() * available.length)];
+  const words = family[cat];
+  const word = words[Math.floor(Math.random() * words.length)];
+  return { given: cat, givenWord: word };
+}
+
+function buildState() {
+  // Build a shuffled index order (Fisher-Yates)
+  const indices = wordFamilies.map((_, i) => i);
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  state = indices.map(i => ({ index: i, ...pickGiven(wordFamilies[i]) }));
+}
+
+// ─── Table Rendering ──────────────────────────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById("quiz-body");
+  tbody.innerHTML = "";
+  state.forEach(({ index: i, given, givenWord }) => {
+    const fam = wordFamilies[i];
+    const tr = document.createElement("tr");
+    tr.dataset.index = i;
+
+    // Noun, Adj, Adverb cells
+    CATS.forEach(cat => {
+      const td = document.createElement("td");
+      td.className = "input-cell";
+      if (cat === given) {
+        // Pre-filled — show same word, read-only style
+        td.textContent = givenWord;
+        td.style.fontWeight = "600";
+        td.style.color = "#1e3a5f";
+      } else {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "word-input";
+        input.dataset.cat = cat;
+        input.autocomplete = "off";
+        input.spellcheck = false;
+        // If there's nothing to fill, mark placeholder as empty
+        if (fam[cat].length === 0) {
+          input.placeholder = "(none)";
+        }
+        td.appendChild(input);
+      }
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+  const scoreEl = document.getElementById("score");
+  scoreEl.textContent = "";
+  scoreEl.style.display = "none";
+}
+
+// ─── Check Answers ────────────────────────────────────────────────────────────
+function checkAnswers() {
+  let correct = 0, total = 0;
+  const rows = document.querySelectorAll("#quiz-body tr");
+  rows.forEach((tr, rowIdx) => {
+    const { index: i, given } = state[rowIdx];
+    const fam = wordFamilies[i];
+
+    tr.querySelectorAll("input.word-input").forEach(input => {
+      const cat = input.dataset.cat;
+      const expected = fam[cat]; // array of correct answers
+      const val = input.value.trim().toLowerCase();
+
+      // Remove old hints
+      const old = input.parentNode.querySelector(".hint-text");
+      if (old) old.remove();
+      input.classList.remove("correct","incorrect");
+
+      if (expected.length === 0) {
+        // No word to fill in — leave unstyled
+      } else {
+        // Real word expected — only count if the student filled something in
+        if (val !== "") {
+          total++;
+          const match = expected.some(w => w.toLowerCase() === val);
+          if (match) {
+            input.classList.add("correct");
+            correct++;
+          } else {
+            input.classList.add("incorrect");
+            const hint = document.createElement("span");
+            hint.className = "hint-text";
+            hint.textContent = "✓ " + expected.join(" / ");
+            input.parentNode.appendChild(hint);
+          }
+        }
+      }
+    });
+  });
+  const scoreEl = document.getElementById("score");
+  scoreEl.textContent = correct + " / " + total + " correct";
+  scoreEl.style.display = "inline";
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+function newTest() {
+  buildState();
+  renderTable();
+}
+
+document.getElementById("btn-check").addEventListener("click", checkAnswers);
+document.getElementById("btn-new").addEventListener("click", newTest);
+
+newTest();
+</script>
+</body>
+</html>
