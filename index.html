@@ -7,25 +7,25 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Arial, sans-serif; background: #f5f7fa; color: #1a1a2e; min-height: 100vh; }
-    header { background: #1e3a5f; color: #fff; padding: 1.2rem 2rem; display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; }
+    header { background: hsl(214, 52%, 25%); color: #fff; padding: 1.2rem 2rem; display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; }
     header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.02em; }
     header p { font-size: 0.9rem; opacity: 0.8; }
     .controls { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-left: auto; }
     #score { font-weight: 700; font-size: 1rem; background: #ffffff22; padding: 0.3rem 0.8rem; border-radius: 20px; display: none; }
-    button { cursor: pointer; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: 600; padding: 0.5rem 1.2rem; transition: background 0.15s; }
-    #btn-check { background: #f0a500; color: #1a1a2e; }
-    #btn-check:hover { background: #d49000; }
+    button { cursor: pointer; border: 2px solid transparent; min-height: 40px; border-radius: 6px; font-size: 0.9rem; font-weight: 600; padding: 0.5rem 1.2rem; transition: background 0.15s; }
+    #btn-check { background: hsl(214, 87%, 85%);; color: #1a1a2e; }
+    #btn-check:hover { background: hsl(214, 48%, 88%); }
     #btn-new { background: transparent; color: #fff; border: 2px solid #fff; }
-    #btn-new:hover { background: #ffffff22; }
+    #btn-new:hover { background: #ffffff; color: hsl(214, 52%, 25%)}
     .table-wrap { overflow-x: auto; padding: 1.5rem 1rem 3rem; }
     table { border-collapse: collapse; width: 100%; min-width: 560px; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px #0001; }
-    thead tr { background: #1e3a5f; color: #fff; }
+    thead tr { background: hsl(214, 52%, 25%); color: #fff; }
     thead th { padding: 0.75rem 0.9rem; text-align: left; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
 
     tbody tr:nth-child(even) { background: #f8f9fb; }
     tbody tr:hover { background: #eef2ff; }
     td { padding: 0.45rem 0.6rem; vertical-align: middle; }
-    td.given-cell { background: #dbeafe; font-weight: 700; font-size: 0.95rem; color: #1e3a5f; min-width: 110px; }
+    td.given-cell { background: #dbeafe; font-weight: 700; font-size: 0.95rem; color: hsl(214, 52%, 25%); min-width: 110px; }
     td.input-cell { min-width: 140px; }
     input.word-input {
       width: 100%; border: 1.5px solid #d1d5db; border-radius: 5px;
@@ -485,6 +485,7 @@ function renderTable() {
         input.dataset.cat = cat;
         input.autocomplete = "off";
         input.spellcheck = false;
+        input.addEventListener("keydown", handleEnterCheckRow);
         // If there's nothing to fill, mark placeholder as empty
         if (fam[cat].length === 0) {
           input.placeholder = "(none)";
@@ -502,6 +503,46 @@ function renderTable() {
 }
 
 // ─── Check Answers ────────────────────────────────────────────────────────────
+function checkRow(tr) {
+  const i = Number(tr.dataset.index);
+  const fam = wordFamilies[i];
+
+  tr.querySelectorAll("input.word-input").forEach(input => {
+    const cat = input.dataset.cat;
+    const expected = fam[cat];
+    const val = input.value.trim().toLowerCase();
+
+    // Remove old hints for this row
+    const old = input.parentNode.querySelector(".hint-text");
+    if (old) old.remove();
+    input.classList.remove("correct", "incorrect");
+
+    if (expected.length === 0) {
+      return;
+    }
+
+    if (val !== "") {
+      const match = expected.some(w => w.toLowerCase() === val);
+      if (match) {
+        input.classList.add("correct");
+      } else {
+        input.classList.add("incorrect");
+        const hint = document.createElement("span");
+        hint.className = "hint-text";
+        hint.textContent = "✓ " + expected.join(" / ");
+        input.parentNode.appendChild(hint);
+      }
+    }
+  });
+}
+
+function handleEnterCheckRow(e) {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  const tr = e.target.closest("tr");
+  if (tr) checkRow(tr);
+}
+
 function checkAnswers() {
   let correct = 0, total = 0;
   const rows = document.querySelectorAll("#quiz-body tr");
